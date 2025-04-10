@@ -1,6 +1,6 @@
 package Presentation;
 
-import BusinessLogic.SimulationManager;
+import BusinessLogic.Controller;
 
 import javax.swing.*;
 import java.awt.*;
@@ -22,7 +22,7 @@ public class SetupWindow extends JFrame {
     private int serviceEnd;
     private int simulationTime;
 
-    public SetupWindow() {
+    public SetupWindow(Controller controller) {
         setTitle("Simulation Setup");
         setSize(400, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -60,15 +60,11 @@ public class SetupWindow extends JFrame {
         startButton.setFocusable(false);
         startButton.addActionListener(e -> {
             if (getSetupInfo()) {
+                controller.setSimulationWindow(new SimulationWindow());
+
+                controller.startSimulation(numClients,numQueues,arrivalStart,arrivalEnd,serviceStart,serviceEnd,simulationTime);
+
                 this.dispose();
-
-                SimulationManager simulationManager = new SimulationManager(numClients, numQueues, arrivalStart, arrivalEnd, serviceStart, serviceEnd, simulationTime);
-
-                SimulationWindow simulationWindow = new SimulationWindow();
-
-                simulationManager.setSimulationWindow(simulationWindow);
-
-                new Thread(simulationManager).start();
             }
             else {
                 JOptionPane.showMessageDialog(this, "Please enter valid input values.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -91,6 +87,6 @@ public class SetupWindow extends JFrame {
         } catch (NumberFormatException e) {
             return false;
         }
-        return arrivalStart <= arrivalEnd && serviceStart <= serviceEnd;
+        return arrivalStart <= arrivalEnd && serviceStart <= serviceEnd && arrivalStart < simulationTime;
     }
 }

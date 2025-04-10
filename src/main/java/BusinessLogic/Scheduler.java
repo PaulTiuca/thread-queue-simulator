@@ -11,10 +11,8 @@ public class Scheduler {
 
     public Scheduler(int queueNb, ClientWaitTime simulationManager){
         for(int i = 1; i <= queueNb; i++) {
-            CashRegister cashRegister = new CashRegister(i,simulationManager);
-            queues.add(cashRegister);
-            Thread t = new Thread(cashRegister);
-            t.start();
+            CashRegister queue = new CashRegister(i,simulationManager);
+            queues.add(queue);
         }
         this.strategy = new EmptyQueueStrategy();
     }
@@ -52,11 +50,25 @@ public class Scheduler {
         }
     }
 
+    public void startQueues() {
+        for(CashRegister queue : queues) {
+            queue.start();
+            Thread t = new Thread(queue);
+            t.start();
+        }
+    }
+
+    public void calculateRemainingClientWaitTime(){
+        for(CashRegister queue : queues) {
+            queue.getRemainingClientWaitTimes();
+        }
+    }
+
     public synchronized int getNbClientsInStore() {
         int nbClientsInStore = 0;
         for(CashRegister queue : queues) {
             nbClientsInStore += queue.getClientsInLine().size();
-            if(queue.getCurrentClient() != null)
+            if(queue.getClientInFront() != null)
                 nbClientsInStore++;
         }
         return nbClientsInStore;

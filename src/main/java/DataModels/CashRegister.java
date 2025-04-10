@@ -8,10 +8,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CashRegister implements Runnable{
     private LinkedBlockingQueue<Client> clientsInLine = new LinkedBlockingQueue<>();
     private int CRID;
-    private volatile Client currentClient = null;
+    private volatile Client clientInFront = null;
     private final AtomicInteger totalServiceTime = new AtomicInteger(0);
-    private boolean running = true;
-    private ClientWaitTime clientWaitTime;
+    private volatile boolean running = false;
+    private final ClientWaitTime clientWaitTime;
 
     public CashRegister(int ID, ClientWaitTime clientWaitTime) {
         this.CRID = ID;
@@ -23,17 +23,17 @@ public class CashRegister implements Runnable{
         while(running) {
             try {
 
-                if(currentClient == null && !clientsInLine.isEmpty()) {
-                    currentClient = clientsInLine.poll();
+                if(clientInFront == null && !clientsInLine.isEmpty()) {
+                    clientInFront = clientsInLine.poll();
                 }
 
-                if(currentClient != null) {
-                    currentClient.decrementServiceTime();
+                if(clientInFront != null) {
+                    clientInFront.decrementServiceTime();
                     totalServiceTime.decrementAndGet();
 
-                    if(currentClient.isLeaving()) {
-                        clientWaitTime.getLeavingClientWaitTime(currentClient);
-                        currentClient = null;
+                    if(clientInFront.isLeaving()) {
+                        clientWaitTime.getLeavingClientWaitTime(clientInFront);
+                        clientInFront = null;
                     }
                 }
 
@@ -46,7 +46,7 @@ public class CashRegister implements Runnable{
         }
     }
 
-    public void addClient(Client c) {
+    public synchronized void addClient(Client c) {
         clientsInLine.add(c);
         totalServiceTime.addAndGet(c.getServiceTime());
     }
@@ -56,23 +56,33 @@ public class CashRegister implements Runnable{
         Thread.currentThread().interrupt();
     }
 
+    public void start(){
+        running = true;
+    }
+
     public int getTotalServiceTime(){
         return totalServiceTime.get();
     }
 
     public boolean isEmpty(){
-        return clientsInLine.isEmpty() && (currentClient == null);
+        return clientsInLine.isEmpty() && (clientInFront == null);
     }
 
-    public int getID() {
-        return CRID;
+    public synchronized void getRemainingClientWaitTimes(){
+        if(clientInFront != null) {
+            clientWaitTime.getLeavingClientWaitTime(clientInFront);
+        }
+        if(!clientsInLine.isEmpty()) {
+            for(Client client : clientsInLine)
+                clientWaitTime.getLeavingClientWaitTime(client);
+        }
     }
 
     public synchronized LinkedBlockingQueue<Client> getClientsInLine() {
         return clientsInLine;
     }
 
-    public synchronized Client getCurrentClient(){
-        return currentClient;
+    public synchronized Client getClientInFront(){
+        return clientInFront;
     }
 }

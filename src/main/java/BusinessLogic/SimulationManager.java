@@ -2,45 +2,32 @@ package BusinessLogic;
 
 import DataModels.CashRegister;
 import DataModels.Client;
-import Presentation.SimulationWindow;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
 public class SimulationManager implements Runnable, ClientWaitTime {
+    private Controller controller;
     private int currentTime;
     private Scheduler scheduler;
     private ArrayList<Client> clientList;
-    private HashMap<Client,Integer> clientWaitTimes;
+    private HashMap<Client,Integer> clientServiceTimes;
     private int simulationTime;
-    private BufferedWriter writer;
     private int totalWaitTime;
     private int totalServiceTime;
     private int clientsServiced;
     private int peakHour;
     private int peakHourClients;
-    private SimulationWindow simulationWindow;
-    private StringBuilder uiUpdate;
 
-    public SimulationManager(int clientNb, int queueNb, int startArrivalTime, int endArrivalTime, int startServiceTime, int endServiceTime, int simulationTime) {
+    public SimulationManager(Controller controller) {
+        this.controller = controller;
         this.currentTime = 0;
-        this.clientList = Generator.generateClients(clientNb, startArrivalTime, endArrivalTime, startServiceTime, endServiceTime);
         this.totalWaitTime = 0;
         this.totalServiceTime = 0;
         this.clientsServiced = 0;
         this.peakHour = -1;
-        this.clientWaitTimes = new HashMap<>();
-        this.scheduler = new Scheduler(queueNb,this);
-        this.simulationTime = simulationTime;
-        try {
-            this.writer = new BufferedWriter(new FileWriter("log.txt"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        this.clientServiceTimes = new HashMap<>();
     }
 
     @Override
@@ -50,9 +37,9 @@ public class SimulationManager implements Runnable, ClientWaitTime {
                 assignClients();
 
                 checkPeakHour();
-                logEvents();
-                buildUIUpdate();
-                simulationWindow.updateWindow(uiUpdate.toString());
+                ArrayList<CashRegister> snapshot = new ArrayList<>(scheduler.getQueues());
+                controller.logEvents(currentTime,clientList,snapshot);
+                controller.updateUI(scheduler.getQueues());
 
                 currentTime++;
                 Thread.sleep(1000);
@@ -70,28 +57,30 @@ public class SimulationManager implements Runnable, ClientWaitTime {
             Client client = iterator.next();
             if (client.getArrivalTime() == currentTime) {
                 scheduler.assignClient(client);
-                clientWaitTimes.put(client,client.getServiceTime());
+                clientServiceTimes.put(client,client.getServiceTime());
                 iterator.remove();
             }
         }
     }
 
-    private void endSimulation(){
-        if(currentTime < simulationTime) {
-            buildUIUpdate();
-            simulationWindow.updateWindow(uiUpdate.toString());
+    public void startSimulation(int clientNb, int queueNb, int startArrivalTime, int endArrivalTime, int startServiceTime, int endServiceTime, int simulationTime) {
+        this.clientList = Generator.generateClients(clientNb, startArrivalTime, endArrivalTime, startServiceTime, endServiceTime);
+        this.scheduler = new Scheduler(queueNb,this);
+        this.simulationTime = simulationTime;
+        scheduler.startQueues();
+        Thread t = new Thread(this);
+        t.start();
+    }
 
-            try {
-                Thread.sleep(1000);
-            }
-            catch(InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
+    private void endSimulation() {
+        controller.updateUI(scheduler.getQueues());
 
-        writeEndData();
+        scheduler.calculateRemainingClientWaitTime();
+
+        ArrayList<CashRegister> snapshot = new ArrayList<>(scheduler.getQueues());
+        controller.logEndData(currentTime,clientList,snapshot,calculateAverageWaitTime(),calculateAverageServiceTime(),peakHour,peakHourClients);
         scheduler.stopQueues();
-        simulationWindow.signalEnd();
+        controller.signalEnd();
     }
 
     private double calculateAverageWaitTime() {
@@ -120,73 +109,10 @@ public class SimulationManager implements Runnable, ClientWaitTime {
         return (currentTime > simulationTime) || (scheduler.allQueuesEmpty() && clientList.isEmpty());
     }
 
-    private void logEvents() {
-        try {
-            writer.write("Time " + currentTime + "\n");
-
-            writer.write("Waiting Clients:");
-            for (Client client : clientList) {
-                writer.write(" (" + client.getID() + "," + client.getArrivalTime() + "," + client.getServiceTime() + ");");
-            }
-
-            writer.write("\n");
-            for (int i = 0; i < scheduler.getQueues().size(); i++) {
-                writer.write("Queue " + (i + 1) + ":");
-                ArrayList<Client> snapshot = new ArrayList<>(scheduler.getQueues().get(i).getClientsInLine());
-                Client currentClient = scheduler.getQueues().get(i).getCurrentClient();
-                if (currentClient != null && !currentClient.isLeaving())
-                    writer.write(" (" + currentClient.getID() + "," + currentClient.getArrivalTime() + "," + currentClient.getServiceTime() + ");");
-                for (Client client : snapshot) {
-                    writer.write(" (" + client.getID() + "," + client.getArrivalTime() + "," + client.getServiceTime() + ");");
-                }
-                writer.write("\n");
-            }
-
-            writer.write("\n");
-            writer.write("--------------------------------------------------\n");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void writeEndData(){
-        logEvents();
-        try {
-            writer.write("\n\nAverage Waiting Time: " + calculateAverageWaitTime());
-            writer.write("\nAverage Service Time: " + calculateAverageServiceTime());
-            writer.write("\nPeak hour: " + peakHour + " (" + peakHourClients + " in store)");
-            writer.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public synchronized void getLeavingClientWaitTime(Client c) {
         clientsServiced++;
-        int initialServiceTime = clientWaitTimes.get(c);
+        int initialServiceTime = clientServiceTimes.get(c);
         totalServiceTime += initialServiceTime;
-        totalWaitTime += currentTime - c.getArrivalTime() - initialServiceTime;
-    }
-
-    private void buildUIUpdate(){
-        this.uiUpdate = new StringBuilder();
-        for (int i = 0; i < scheduler.getQueues().size(); i++) {
-            uiUpdate.append("Queue ").append(i + 1).append(": ");
-            CashRegister queue = scheduler.getQueues().get(i);
-            Client currentClient = queue.getCurrentClient();
-
-            if (currentClient != null && !currentClient.isLeaving()) {
-                uiUpdate.append("[").append(currentClient.getID()).append(",").append(currentClient.getServiceTime()).append("] ");
-            }
-
-            for (var client : queue.getClientsInLine()) {
-                uiUpdate.append("[").append(client.getID()).append(",").append(client.getServiceTime()).append("] ");
-            }
-            uiUpdate.append("\n\n");
-        }
-    }
-
-    public void setSimulationWindow(SimulationWindow simulationWindow) {
-        this.simulationWindow = simulationWindow;
+        totalWaitTime += currentTime - c.getArrivalTime() - (initialServiceTime - c.getServiceTime());
     }
 }
