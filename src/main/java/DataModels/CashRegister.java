@@ -7,14 +7,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CashRegister implements Runnable{
     private LinkedBlockingQueue<Client> clientsInLine = new LinkedBlockingQueue<>();
-    private int CRID;
+    private int ID;
     private volatile Client clientInFront = null;
     private final AtomicInteger totalServiceTime = new AtomicInteger(0);
     private volatile boolean running = false;
     private final ClientWaitTime clientWaitTime;
 
     public CashRegister(int ID, ClientWaitTime clientWaitTime) {
-        this.CRID = ID;
+        this.ID = ID;
         this.clientWaitTime = clientWaitTime;
     }
 
@@ -60,10 +60,6 @@ public class CashRegister implements Runnable{
         running = true;
     }
 
-    public int getTotalServiceTime(){
-        return totalServiceTime.get();
-    }
-
     public boolean isEmpty(){
         return clientsInLine.isEmpty() && (clientInFront == null);
     }
@@ -76,6 +72,14 @@ public class CashRegister implements Runnable{
             for(Client client : clientsInLine)
                 clientWaitTime.getLeavingClientWaitTime(client);
         }
+    }
+
+    public int getID() {
+        return ID;
+    }
+
+    public int getTotalServiceTime(){
+        return totalServiceTime.get();
     }
 
     public synchronized LinkedBlockingQueue<Client> getClientsInLine() {

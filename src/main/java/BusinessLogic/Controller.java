@@ -2,16 +2,14 @@ package BusinessLogic;
 
 import DataModels.CashRegister;
 import DataModels.Client;
-import Presentation.SetupWindow;
 import Presentation.SimulationWindow;
 
 import java.util.ArrayList;
 
 public class Controller {
-    SimulationManager simulationManager;
-    SetupWindow setupWindow;
-    SimulationWindow simulationWindow;
-    EventLogger eventLogger;
+    private SimulationManager simulationManager;
+    private SimulationWindow simulationWindow;
+    private EventLogger eventLogger;
     private StringBuilder uiUpdate;
 
     public Controller() {
@@ -26,8 +24,8 @@ public class Controller {
         eventLogger.logEvents(currentTime,clientList,queues);
     }
 
-    public void logEndData(int currentTime, ArrayList<Client> clientList, ArrayList<CashRegister> queues, double averageWaitTime, double averageServiceTime, int peakHour, int peakHourClients){
-        eventLogger.logEndData(currentTime,clientList,queues,averageWaitTime,averageServiceTime,peakHour,peakHourClients);
+    public void logEndData(int currentTime, int simulationTime, ArrayList<Client> clientList, ArrayList<CashRegister> queues, double averageWaitTime, double averageServiceTime, int peakHour, int peakHourClients){
+        eventLogger.logEndData(currentTime,simulationTime,clientList,queues,averageWaitTime,averageServiceTime,peakHour,peakHourClients);
     }
 
     public void updateUI(ArrayList<CashRegister> queues) {
@@ -38,7 +36,7 @@ public class Controller {
     private void buildUIUpdate(ArrayList<CashRegister> queues) {
         this.uiUpdate = new StringBuilder();
         for (int i = 0; i < queues.size(); i++) {
-            uiUpdate.append("Queue ").append(i + 1).append(": ");
+            uiUpdate.append("Queue ").append(queues.get(i).getID()).append(": ");
             CashRegister queue = queues.get(i);
             Client clientInFront = queue.getClientInFront();
 
@@ -59,10 +57,6 @@ public class Controller {
 
     public void setSimulationManager(SimulationManager simulationManager) {
         this.simulationManager = simulationManager;
-    }
-
-    public void setSetupWindow(SetupWindow setupWindow) {
-        this.setupWindow = setupWindow;
     }
 
     public void setSimulationWindow(SimulationWindow simulationWindow) {

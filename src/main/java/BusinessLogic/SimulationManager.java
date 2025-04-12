@@ -78,7 +78,7 @@ public class SimulationManager implements Runnable, ClientWaitTime {
         scheduler.calculateRemainingClientWaitTime();
 
         ArrayList<CashRegister> snapshot = new ArrayList<>(scheduler.getQueues());
-        controller.logEndData(currentTime,clientList,snapshot,calculateAverageWaitTime(),calculateAverageServiceTime(),peakHour,peakHourClients);
+        controller.logEndData(currentTime,simulationTime,clientList,snapshot,calculateAverageWaitTime(),calculateAverageServiceTime(),peakHour,peakHourClients);
         scheduler.stopQueues();
         controller.signalEnd();
     }
