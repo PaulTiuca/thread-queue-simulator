@@ -87,6 +87,8 @@ public class SetupWindow extends JFrame {
         } catch (NumberFormatException e) {
             return false;
         }
-        return arrivalStart <= arrivalEnd && serviceStart <= serviceEnd && arrivalStart < simulationTime;
+        if(numClients <= 0 || numQueues <= 0 || arrivalStart < 0 || arrivalEnd < 0 || serviceStart <= 0 || serviceEnd < 0 || simulationTime <= 0)
+            return false;
+        return arrivalStart <= arrivalEnd && serviceStart <= serviceEnd && arrivalStart <= simulationTime;
     }
 }
