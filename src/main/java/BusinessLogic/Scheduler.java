@@ -18,9 +18,10 @@ public class Scheduler {
     }
 
     public synchronized void assignClient(Client client) {
-        if (anyQueueEmpty() && strategy instanceof ShortestTimeStrategy) {
+        if (anyQueueEmpty()) {
             strategy = new EmptyQueueStrategy();
-        } else if (strategy instanceof EmptyQueueStrategy){
+        }
+        else {
             strategy = new ShortestTimeStrategy();
         }
         strategy.addClient(queues, client);
